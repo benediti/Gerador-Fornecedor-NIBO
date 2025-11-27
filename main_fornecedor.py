@@ -133,18 +133,12 @@ if uploaded_file is not None:
             st.markdown("---")
             st.header("⚙️ Configurações da Coleção")
             
-            col1, col2 = st.columns(2)
-            with col1:
-                nome_colecao = st.text_input(
-                    "Nome da Coleção:",
-                    value=f"Agendamentos Fornecedores - {datetime.now().strftime('%d/%m/%Y')}"
-                )
-            with col2:
-                endpoint = st.text_input(
-                    "Endpoint da API:",
-                    value="financial-schedules",
-                    help="Geralmente: financial-schedules"
-                )
+            nome_colecao = st.text_input(
+                "Nome da Coleção:",
+                value=f"Agendamentos Fornecedores - {datetime.now().strftime('%d/%m/%Y')}"
+            )
+            
+            st.info("📍 **Endpoint:** `https://api.nibo.com.br/empresas/v1/schedules/debit`")
             
             # Botão para gerar coleção
             if st.button("🚀 Gerar Coleção Postman", type="primary", use_container_width=True):
@@ -184,25 +178,28 @@ if uploaded_file is not None:
                             progress_bar.progress(progress)
                             status_text.text(f"Gerando requisição {idx + 1}/{len(df)}...")
                             
-                            # Preparar body da requisição
+                            # Preparar body da requisição no formato NIBO
                             body = {
-                                "stakeholderId": str(row['stakeholderId']),
-                                "categoryId": str(row['categoryId']),
-                                "value": float(row['value']),
-                                "costCenterId": str(row['costCenterId']),
-                                "date": str(row['date'])[:10],
-                                "description": str(row.get('description', ''))
+                                "stakeholderId": str(row['stakeholderId']) if pd.notna(row['stakeholderId']) else "",
+                                "description": str(row.get('description', '')) if pd.notna(row.get('description')) else "",
+                                "reference": str(row.get('reference', '')) if pd.notna(row.get('reference')) else "",
+                                "scheduleDate": str(row['date'])[:10] if pd.notna(row['date']) else "",
+                                "dueDate": str(row['Vencimento'])[:10] if pd.notna(row['Vencimento']) else "",
+                                "accrualDate": str(row.get('Data de competência', row['date']))[:10] if pd.notna(row.get('Data de competência', row['date'])) else "",
+                                "categories": [
+                                    {
+                                        "categoryId": str(row['categoryId']) if pd.notna(row['categoryId']) else "",
+                                        "value": float(row['value']) if pd.notna(row['value']) else 0.0
+                                    }
+                                ],
+                                "costCenterValueType": 0,
+                                "costCenters": [
+                                    {
+                                        "costCenterId": str(row['costCenterId']) if pd.notna(row['costCenterId']) else "",
+                                        "value": float(row['value']) if pd.notna(row['value']) else 0.0
+                                    }
+                                ]
                             }
-                            
-                            # Adicionar campos opcionais se existirem
-                            if 'accountId' in row and pd.notna(row['accountId']):
-                                body['accountId'] = str(row['accountId'])
-                            if 'reference' in row and pd.notna(row['reference']):
-                                body['reference'] = str(row['reference'])
-                            if 'Vencimento' in row and pd.notna(row['Vencimento']):
-                                body['dueDate'] = str(row['Vencimento'])[:10]
-                            if 'Data de competência' in row and pd.notna(row['Data de competência']):
-                                body['accrualDate'] = str(row['Data de competência'])[:10]
                             
                             # Criar requisição
                             request_name = f"Agendamento {idx + 1}"
@@ -216,13 +213,11 @@ if uploaded_file is not None:
                                     "header": [
                                         {
                                             "key": "Content-Type",
-                                            "value": "application/json",
-                                            "type": "text"
+                                            "value": "application/json"
                                         },
                                         {
-                                            "key": "Authorization",
-                                            "value": "{{token}}",
-                                            "type": "text"
+                                            "key": "ApiToken",
+                                            "value": "{{token}}"
                                         }
                                     ],
                                     "body": {
@@ -230,9 +225,10 @@ if uploaded_file is not None:
                                         "raw": json.dumps(body, indent=2, ensure_ascii=False)
                                     },
                                     "url": {
-                                        "raw": f"{{{{base_url}}}}/{endpoint}",
-                                        "host": ["{{base_url}}"],
-                                        "path": [endpoint]
+                                        "raw": "https://api.nibo.com.br/empresas/v1/schedules/debit",
+                                        "protocol": "https",
+                                        "host": ["api", "nibo", "com", "br"],
+                                        "path": ["empresas", "v1", "schedules", "debit"]
                                     }
                                 },
                                 "response": []
